@@ -44,11 +44,11 @@ let ftp = new jsftp({
     // console.log(`${accessesList[i].domain}: ${await fixSettingsJson()}`);
 
     console.log(`${i+1}_ ${accessesList[i].domain}: ${await setMetrika(accessesList[i].yandex)}`);
+    // console.log(`${i+1}_ ${accessesList[i].domain}: ${await changeSettingsByParam('cloakit', accessesList[i].additionals[0])}`);
 
     // console.log(`${accessesList[i].domain}: ${await createFile('settings.json', bufContent)}`);
 
-    //допилить замену всех вхождений через легулярку
-    console.log(`${i + 1} ${accessesList[i].domain} > ${await replaceFileContent('index.php', '17155', accessesList[i].additionals[0])}`);
+    // console.log(`${i + 1} ${accessesList[i].domain} > ${await replaceFileContent('kod.php', `<script type='text/javascript' src='//www.youtube.com/iframe_api'></script>`, '')}`);
 
     if (ftp) {
       ftp.socket.destroy()
@@ -110,14 +110,23 @@ async function getFiles(path = '.') {
   })
 }
 
+
+
 async function getFileContent(path = '') {
   return new Promise((resolve, reject) => {
     try {
-      let data = ftp.get(defaultFtpPath + path, (err, socket) => {
+      let data =  ftp.get(defaultFtpPath + path, (err, socket) => {
+        let str = ''
         if (err) reject(err)
-        socket.on('data', d => {
-          resolve(d.toString());
-        })
+
+        socket.on("data", d => {
+          str += d.toString();
+        });
+
+        socket.on("end",() => {
+          resolve(str.toString());
+        });
+        
         socket.on("close", err => {
           if (err) console.error("There was an error retrieving the file.")
         });
@@ -227,7 +236,19 @@ async function replaceFileContent(path, find, replace) {
 
   if (remoteFileContent.includes(find)) {
     const replacedContent = remoteFileContent.replace(new RegExp(find, 'g'), replace)
-    const replacedContentBuffer = Buffer.from(replacedContent, "utf-8")
+    const replacedContentBuffer = Buffer.from(replacedContent, "utf-8")    
     return await setFileContent(replacedContentBuffer, path)
   } return false
+}
+
+async function changeSettingsByParam(param, value) {
+  const settingsPath = 'settings.json'
+  const settingsJson = await getFileContent(settingsPath)
+  const settingsObj = JSON.parse(settingsJson)
+
+  settingsObj[param] = value
+
+  const settingsString = JSON.stringify(settingsObj, null, "\t")
+  const settingsBuffer = Buffer.from(settingsString, "utf-8")
+  return await setFileContent(settingsBuffer, settingsPath)
 }
