@@ -16,10 +16,10 @@ let ftp = new jsftp({
 (async () => {
   let accessesList = await getAccesses()
 
-  // let tempContentData = await fs.promises.readFile(localTempFile)
-  // let bufContent = Buffer.from(tempContentData.toString(), 'utf-8');
+  let tempContentData = await fs.promises.readFile(localTempFile)
+  let bufContent = Buffer.from(tempContentData.toString(), 'utf-8');
 
-
+const replObj = { neogara: "1", global: "0", neogara_js: "0" }
 
 
   // for (let accessesObj of accessesList) {
@@ -34,21 +34,31 @@ let ftp = new jsftp({
 
     // console.log(`${accessesList[i].domain} content: ${await getFileContent('index.php')}`)
 
-    // let tempContentData = await fs.promises.readFile(localTempFile)
-    // let bufContent = Buffer.from(tempContentData.toString(), 'utf-8');
-
     // const replacedContent = tempContentData.toString().replace('replaseyandexmetrika', accessesList[i].yandex)
     // let bufContent = Buffer.from(replacedContent.toString(), 'utf-8');
-    // console.log(`${i+1}_ ${accessesList[i].domain}: ${await setFileContent(bufContent, '.htaccess')}`)
+    // console.log(`${i+1}_ ${accessesList[i].domain}: ${await setFileContent(bufContent, 'functions/send.php')}`)
 
     // console.log(`${accessesList[i].domain}: ${await fixSettingsJson()}`);
 
-    console.log(`${i+1}_ ${accessesList[i].domain}: ${await setMetrika(accessesList[i].yandex)}`);
+    // console.log(`${i+1}_ ${accessesList[i].domain}: ${await setMetrika(accessesList[i].yandex)}`);
+    // console.log(`${i+1}_ ${accessesList[i].domain}: ${await changeSettingsByParam('pid', accessesList[i].additionals[0])}`);
     // console.log(`${i+1}_ ${accessesList[i].domain}: ${await changeSettingsByParam('cloakit', accessesList[i].additionals[0])}`);
+    // console.log(`${i+1}_ ${accessesList[i].domain}: ${await changeSettingsByParam('group', '6')}`);
 
     // console.log(`${accessesList[i].domain}: ${await createFile('settings.json', bufContent)}`);
 
+    // console.log(`${i + 1} ${accessesList[i].domain} > ${await replaceFileContent('kod.php', `token=c744d8285b9b9a`, '')}`);
     // console.log(`${i + 1} ${accessesList[i].domain} > ${await replaceFileContent('kod.php', `<script type='text/javascript' src='//www.youtube.com/iframe_api'></script>`, '')}`);
+
+    // console.log(await loadIndexSaveTitle('kod.php', tempContentData.toString()));
+    
+    
+    console.log(`${i + 1}_ ${accessesList[i].domain}: ${await renameFile("/public/index.php","/public/registration.php")}`);
+
+
+
+    // console.log(`${accessesList[i].domain}: ${await loadIndexSaveTitle('kod.php', tempContentData)}`);
+
 
     if (ftp) {
       ftp.socket.destroy()
@@ -110,12 +120,10 @@ async function getFiles(path = '.') {
   })
 }
 
-
-
 async function getFileContent(path = '') {
   return new Promise((resolve, reject) => {
     try {
-      let data =  ftp.get(defaultFtpPath + path, (err, socket) => {
+      let data = ftp.get(defaultFtpPath + path, (err, socket) => {
         let str = ''
         if (err) reject(err)
 
@@ -123,10 +131,10 @@ async function getFileContent(path = '') {
           str += d.toString();
         });
 
-        socket.on("end",() => {
+        socket.on("end", () => {
           resolve(str.toString());
         });
-        
+
         socket.on("close", err => {
           if (err) console.error("There was an error retrieving the file.")
         });
@@ -155,7 +163,20 @@ async function setFileContent(content, path) {
     }
   })
 }
+async function renameFile(from, to) {
+  if (!from || !to) return false
 
+  return new Promise((resolve, reject) => {
+    try {
+      ftp.rename(defaultFtpPath +from, defaultFtpPath + to, (err, res) => {
+        if (err) reject(err)
+        resolve(true)
+      });
+    } catch (error) {
+      return error
+    }
+  })
+}
 async function fixDefaultRemotePath() {
   let filesList = await getFiles()
   let containPublicHtml = false
@@ -235,8 +256,8 @@ async function replaceFileContent(path, find, replace) {
   const remoteFileContent = await getFileContent(path)
 
   if (remoteFileContent.includes(find)) {
-    const replacedContent = remoteFileContent.replace(new RegExp(find, 'g'), replace)
-    const replacedContentBuffer = Buffer.from(replacedContent, "utf-8")    
+    const replacedContent = remoteFileContent.replace(new RegExp(find.toString(), 'g'), replace)
+    const replacedContentBuffer = Buffer.from(replacedContent, "utf-8")
     return await setFileContent(replacedContentBuffer, path)
   } return false
 }
@@ -251,4 +272,21 @@ async function changeSettingsByParam(param, value) {
   const settingsString = JSON.stringify(settingsObj, null, "\t")
   const settingsBuffer = Buffer.from(settingsString, "utf-8")
   return await setFileContent(settingsBuffer, settingsPath)
+}
+
+async function getIndexTitle(path) {
+  const remoteFileContent = await getFileContent(path)
+  if(!remoteFileContent) throw new Error('No data in file')
+
+  const titleReg = /<title>(.*?)<\/title>/
+  const title = remoteFileContent.toString().match(titleReg)[0]
+  if (title.includes('<title>')) return title
+  else throw new Error('Title not found')
+}
+
+async function loadIndexSaveTitle(path, content) {
+  const prevTitle = getIndexTitle(path)
+  const replacedContent = content.replace(new RegExp(`|||title|||`, 'g'), prevTitle)
+  const replacedContentBuffer = Buffer.from(replacedContent, "utf-8")
+  return await setFileContent(replacedContentBuffer, path)
 }
